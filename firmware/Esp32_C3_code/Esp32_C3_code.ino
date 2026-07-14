@@ -4,17 +4,25 @@
   #include <Adafruit_AMG88xx.h>
   #include <HardwareSerial.h>
   #include <MyLD2410.h>
+  #include <MFRC522.h>
+  #include <SPI.h>
+  #include <WiFiManager.h>
+  #include <WiFi.h>
 
   // Constants
   const int max_distance = 150;
   const float hot_temp = 34.0;
   const int buzzer_pin = 3;
-  const int green_led_pin = 4;
-  const int red_led_pin = 5;
+  const int green_led_pin = 5;
+  const int red_led_pin = 4;
+
+  #define rst_pin 2
+  #define ss_pin 10
 
   // Objects and variables
   Adafruit_AMG88xx stove;
   MyLD2410 radar(Serial1);
+  MFRC522 rfid(ss_pin,rst_pin);
   unsigned long lastThermalCheck = 0; // stopwatch
 
 void setup() {
@@ -22,6 +30,32 @@ void setup() {
   // Setup serial monitor
   Serial.begin(115200);
   delay(2000);
+  Serial.println("\n--- BOOTING FORGOTTEN STOVE IOT ---");
+
+  //Connecting to the wifi
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.setTxPower(WIFI_POWER_5dBm); // Prevents the voltage regulator from crashing
+
+  WiFiManager wm;
+  
+  // Enforce low power even when it switches to Access Point mode
+  wm.setAPCallback([](WiFiManager *myWiFiManager) {
+    Serial.println("Portal Started! Re-enforcing low power whisper mode...");
+    WiFi.setTxPower(WIFI_POWER_5dBm); 
+  });
+
+  Serial.println("Starting WiFiManager. Broadcasting 'Stove_Setup_Whisper' if no saved networks...");
+  
+  // Attempt to connect. If it fails, broadcast the setup portal.
+  if (!wm.autoConnect("Stove_Setup_Whisper")) {
+    Serial.println("Failed to connect or hit timeout. Resetting...");
+    delay(3000);
+    ESP.restart();
+  }
+
+  Serial.println("\nSUCCESS: Connected to external router!");
+  Serial.print("Local IP Address: ");
+  Serial.println(WiFi.localIP());
 
   // set pins to output mode
   pinMode(buzzer_pin, OUTPUT);
@@ -36,10 +70,33 @@ void setup() {
   Serial1.begin(256000, SERIAL_8N1, 20, 21);
   radar.begin();
 
+  // Turn on SPI and start RFID Reader
+  SPI.begin(6, 0, 7, 10); // SCK, MISO, MOSI, SS
+  rfid.PCD_Init();
+  Serial.println("RFID Scanner Online. Tap a card...");
+
 }
 
 void loop() {
 
+  // Check for rfid tag
+  if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()){
+    Serial.print("User Tag Tapped! UID: ");
+    String tagUID = "";
+
+    // Read the 4 bytes of the card's UID and convert to Hexadecimal string
+    for (byte i = 0; i < rfid.uid.size; i++) {
+      tagUID += String(rfid.uid.uidByte[i] < 0x10 ? "0" : "");
+      tagUID += String(rfid.uid.uidByte[i], HEX);
+    }
+    
+    tagUID.toUpperCase();
+    Serial.println(tagUID);
+    
+    // Halt the card so it doesn't read the exact same tap 1000 times a second
+    rfid.PICC_HaltA();
+  }
+  
   // Constantly check radar
   radar.check();
 
@@ -77,6 +134,14 @@ void loop() {
 
     }
 
+    // printing to serial monitor for debugging
+    Serial.print("Max Temp: ");
+    Serial.print(max_temp);
+    Serial.print(" C  |  Distance: ");
+    Serial.print(current_distance);
+    Serial.print(" cm  |  Cooking: ");
+    Serial.println(is_person_cooking ? "YES" : "NO");
+
     // Apply safety rules
     if (max_temp >= hot_temp){
       // Active cooking
@@ -99,5 +164,6 @@ void loop() {
       digitalWrite(red_led_pin, LOW);
       digitalWrite(buzzer_pin, LOW);
     }
+  }
 
 }
