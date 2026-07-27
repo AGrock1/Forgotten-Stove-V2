@@ -8,6 +8,11 @@
   #include <SPI.h>
   #include <WiFiManager.h>
   #include <WiFi.h>
+  #include <Firebase_ESP_Client.h>
+  #include <addons/TokenHelper.h>
+
+  // Firebase Credentials
+  #include "password.h"
 
   // Constants
   const int max_distance = 150;
@@ -23,7 +28,13 @@
   Adafruit_AMG88xx stove;
   MyLD2410 radar(Serial1);
   MFRC522 rfid(ss_pin,rst_pin);
-  unsigned long lastThermalCheck = 0; // stopwatch
+  unsigned long lastThermalCheck = 0;
+  unsigned long grace_time = 120000;
+  unsigned long abandon_time = 0;
+  String last_uid_tapped = "None";
+  FirebaseData fbdo;
+  FirebaseAuth auth;
+  FirebaseConfig config;
 
 void setup() {
 
@@ -56,6 +67,16 @@ void setup() {
   Serial.println("\nSUCCESS: Connected to external router!");
   Serial.print("Local IP Address: ");
   Serial.println(WiFi.localIP());
+
+  // Firebase setup and initialization
+
+  Serial.printf("Connecting to Firebase Database: %s\n", firebase_host);
+  config.database_url = firebase_host;
+  config.signer.tokens.legacy_token = firebase_auth;
+  
+  Firebase.begin(&config, &auth);
+  Firebase.reconnectWiFi(true);
+  Serial.println("Firebase Initialized!");
 
   // set pins to output mode
   pinMode(buzzer_pin, OUTPUT);
@@ -92,6 +113,7 @@ void loop() {
     
     tagUID.toUpperCase();
     Serial.println(tagUID);
+    last_uid_tapped = tagUID;
     
     // Halt the card so it doesn't read the exact same tap 1000 times a second
     rfid.PICC_HaltA();
@@ -149,12 +171,21 @@ void loop() {
         digitalWrite(green_led_pin, LOW);
         digitalWrite(red_led_pin, HIGH);
         digitalWrite(buzzer_pin, LOW);
+        abandon_time = 0;
       }
       // Forgotten stove
       else{
+        if (abandon_time == 0){
+          abandon_time = millis();
+        }
         digitalWrite(green_led_pin, LOW);
         digitalWrite(red_led_pin, HIGH);
-        digitalWrite(buzzer_pin, HIGH);
+        if (millis() - abandon_time > grace_time){
+          digitalWrite(buzzer_pin, HIGH);
+        }
+        else{
+          digitalWrite(buzzer_pin, LOW);
+        }
       }
 
     }
@@ -163,7 +194,39 @@ void loop() {
       digitalWrite(green_led_pin, HIGH);
       digitalWrite(red_led_pin, LOW);
       digitalWrite(buzzer_pin, LOW);
+      abandon_time = 0;
     }
+
+    // updating temp
+    if (Firebase.RTDB.setFloat(&fbdo, "/stove/max_temp", max_temp)) {
+    } 
+    else {
+      Serial.println("Failed to push Temp: " + fbdo.errorReason());
+    }
+    // updating distance
+    Firebase.RTDB.setInt(&fbdo, "/stove/distance", current_distance);
+
+    // updating cooking status
+    Firebase.RTDB.setBool(&fbdo, "/stove/is_cooking", is_person_cooking);
+    
+    // updating the uid
+    Firebase.RTDB.setString(&fbdo, "/stove/last_user_uid", last_uid_tapped);
+
+    if (Firebase.RTDB.getString(&fbdo, "/stove/grace_period")) {
+      String user_pref = fbdo.stringData();
+      user_pref.trim();
+      user_pref.toLowerCase();
+
+      if (user_pref == "short") {
+        grace_time = 30000;  // 30 seconds
+      } else if (user_pref == "medium") {
+        grace_time = 120000; // 2 minutes
+      } else if (user_pref == "long") {
+        grace_time = 300000; // 5 minutes
+      }
+    }
+    
+
   }
 
 }
