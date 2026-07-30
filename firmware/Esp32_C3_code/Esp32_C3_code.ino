@@ -20,6 +20,7 @@
   const int buzzer_pin = 3;
   const int green_led_pin = 5;
   const int red_led_pin = 4;
+  const unsigned long rfid_delay = 1500;
 
   #define rst_pin 2
   #define ss_pin 10
@@ -31,10 +32,15 @@
   unsigned long lastThermalCheck = 0;
   unsigned long grace_time = 120000;
   unsigned long abandon_time = 0;
+  unsigned long lastSettingsCheck = 0;
+  unsigned long last_rfid_tap_time = 0;
   String last_uid_tapped = "None";
+  String second_last_uid_tapped = "None";
   FirebaseData fbdo;
+  FirebaseData fbdo_read;
   FirebaseAuth auth;
   FirebaseConfig config;
+  String device_path = "/stove";
 
 void setup() {
 
@@ -68,6 +74,14 @@ void setup() {
   Serial.print("Local IP Address: ");
   Serial.println(WiFi.localIP());
 
+  // creating uniquw device path using MAC address
+
+  String mac = WiFi.macAddress();
+  mac.replace(":", ""); 
+  device_path = "/devices/" + mac;
+  Serial.print("Device Cloud Path: ");
+  Serial.println(device_path);
+
   // Firebase setup and initialization
 
   Serial.printf("Connecting to Firebase Database: %s\n", firebase_host);
@@ -85,38 +99,53 @@ void setup() {
 
   // Turn on I2C and start thermal camera
   Wire.begin(8, 9);
-  stove.begin();
+  Wire.setClock(10000);
+  if (!stove.begin()) {
+    Serial.println("COULD NOT FIND AMG88xx THERMAL CAMERA! Check I2C wiring.");
+  } 
+  else {
+    Serial.println("AMG88xx Thermal Camera Online!");
+  }
 
   // Turn on Serial1 and start Radar
   Serial1.begin(256000, SERIAL_8N1, 20, 21);
   radar.begin();
 
-  // Turn on SPI and start RFID Reader
+  //   Turn on SPI and start RFID Reader
   SPI.begin(6, 0, 7, 10); // SCK, MISO, MOSI, SS
   rfid.PCD_Init();
   Serial.println("RFID Scanner Online. Tap a card...");
-
 }
 
 void loop() {
 
   // Check for rfid tag
-  if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()){
-    Serial.print("User Tag Tapped! UID: ");
-    String tagUID = "";
+  if (millis() - last_rfid_tap_time > rfid_delay) {
+    if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()){
+      last_rfid_tap_time = millis();
+      Serial.print("User Tag Tapped! UID: ");
+      String tagUID = "";
 
-    // Read the 4 bytes of the card's UID and convert to Hexadecimal string
-    for (byte i = 0; i < rfid.uid.size; i++) {
-      tagUID += String(rfid.uid.uidByte[i] < 0x10 ? "0" : "");
-      tagUID += String(rfid.uid.uidByte[i], HEX);
+      // Read the 4 bytes of the card's UID and convert to Hexadecimal string
+      for (byte i = 0; i < rfid.uid.size; i++) {
+        tagUID += String(rfid.uid.uidByte[i] < 0x10 ? "0" : "");
+        tagUID += String(rfid.uid.uidByte[i], HEX);
+      }
+    
+      tagUID.toUpperCase();
+      Serial.println(tagUID);
+      second_last_uid_tapped = last_uid_tapped;
+      last_uid_tapped = tagUID;
+
+      if (last_uid_tapped == second_last_uid_tapped){
+        last_uid_tapped = "None";
+
+      }
+    
+      // Halt the card so it doesn't read the exact same tap 1000 times a second
+      rfid.PICC_HaltA();
+      rfid.PCD_StopCrypto1();
     }
-    
-    tagUID.toUpperCase();
-    Serial.println(tagUID);
-    last_uid_tapped = tagUID;
-    
-    // Halt the card so it doesn't read the exact same tap 1000 times a second
-    rfid.PICC_HaltA();
   }
   
   // Constantly check radar
@@ -132,7 +161,7 @@ void loop() {
 
     float max_temp = 0.0;
     for (int i = 0; i < 64; i++){
-      if (pixels[i] > max_temp){
+      if (pixels[i] > max_temp && pixels[i] <= 100.0){
         max_temp = pixels[i];
       }
     }
@@ -198,31 +227,31 @@ void loop() {
     }
 
     // updating temp
-    if (Firebase.RTDB.setFloat(&fbdo, "/stove/max_temp", max_temp)) {
-    } 
-    else {
-      Serial.println("Failed to push Temp: " + fbdo.errorReason());
+    FirebaseJson json;
+    json.set("max_temp", max_temp);
+    json.set("distance", current_distance);
+    json.set("is_cooking", is_person_cooking);
+    json.set("last_user_uid", last_uid_tapped);
+
+    if (!Firebase.RTDB.setJSONAsync(&fbdo, device_path, &json)) {
+      Serial.println("Failed to push JSON: " + fbdo.errorReason());
     }
-    // updating distance
-    Firebase.RTDB.setInt(&fbdo, "/stove/distance", current_distance);
 
-    // updating cooking status
-    Firebase.RTDB.setBool(&fbdo, "/stove/is_cooking", is_person_cooking);
-    
-    // updating the uid
-    Firebase.RTDB.setString(&fbdo, "/stove/last_user_uid", last_uid_tapped);
+    if (millis() - lastSettingsCheck > 10000) {
+        lastSettingsCheck = millis();
 
-    if (Firebase.RTDB.getString(&fbdo, "/stove/grace_period")) {
-      String user_pref = fbdo.stringData();
-      user_pref.trim();
-      user_pref.toLowerCase();
+      if (Firebase.RTDB.getString(&fbdo_read, device_path + "/grace_period")) {
+        String user_pref = fbdo_read.stringData();
+        user_pref.trim();
+        user_pref.toLowerCase();
 
-      if (user_pref == "short") {
-        grace_time = 30000;  // 30 seconds
-      } else if (user_pref == "medium") {
-        grace_time = 120000; // 2 minutes
-      } else if (user_pref == "long") {
-        grace_time = 300000; // 5 minutes
+        if (user_pref == "short") {
+          grace_time = 30000;  // 30 seconds
+        } else if (user_pref == "medium") {
+          grace_time = 120000; // 2 minutes
+        } else if (user_pref == "long") {
+          grace_time = 300000; // 5 minutes
+        }
       }
     }
     
