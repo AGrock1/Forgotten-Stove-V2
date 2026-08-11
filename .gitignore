@@ -70,3 +70,4 @@ Testing/
 
 # Ignore the file containing real passwords
 password.h
+env.js

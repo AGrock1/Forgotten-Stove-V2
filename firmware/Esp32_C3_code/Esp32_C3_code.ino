@@ -90,6 +90,8 @@ void setup() {
   
   Firebase.begin(&config, &auth);
   Firebase.reconnectWiFi(true);
+  fbdo.setBSSLBufferSize(2048, 1024);
+  fbdo_read.setBSSLBufferSize(2048, 1024);
   Serial.println("Firebase Initialized!");
 
   // set pins to output mode

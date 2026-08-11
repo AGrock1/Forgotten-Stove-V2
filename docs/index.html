@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forgotten Stove Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300 min-h-screen p-4 md:p-8">
+
+    <!-- Login Screen with Google Auth -->
+    <div id="login-screen" class="flex flex-col items-center justify-center min-h-[80vh]">
+        <svg class="w-20 h-20 text-orange-500 mb-6" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"></path>
+        </svg>
+        <h1 class="text-4xl font-extrabold mb-2">Forgotten Stove</h1>
+        <p class="text-gray-500 dark:text-gray-400 mb-8">Secure Safety Monitor</p>
+        
+        <button id="login-btn" class="flex items-center gap-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 px-6 py-3 rounded-lg shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 transition font-semibold">
+            <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google Logo" class="w-6 h-6">
+            Sign in with Google
+        </button>
+    </div>
+
+    <!-- Device Binding Screen (For New Users) -->
+    <div id="bind-screen" class="hidden flex flex-col items-center justify-center min-h-[80vh]">
+        <h2 class="text-3xl font-extrabold mb-2">Register Your Device</h2>
+        <p class="text-gray-500 dark:text-gray-400 mb-8 text-center max-w-md">Enter the MAC address of your Forgotten Stove hardware to bind it to your account.</p>
+        
+        <input type="text" id="mac-input" placeholder="e.g. 44BD8D278F14" class="mb-4 w-64 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white font-mono text-center rounded-lg focus:ring-orange-500 focus:border-orange-500 block p-3 outline-none uppercase">
+        
+        <button id="bind-btn" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-lg shadow-md transition-colors">
+            Connect Device
+        </button>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard-content" class="hidden">
+        <!--Navigation bar-->
+        <nav class="max-w-4xl mx-auto flex justify-between items-center mb-8 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+            <h1 class="text-xl md:text-2xl font-bold flex items-center gap-2">
+                <svg class="w-7 h-7 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"></path>
+                </svg>
+                Forgotten Stove
+            </h1>
+            
+            <div class="flex items-center gap-4">
+                <button id="logout-btn" class="text-sm font-semibold text-gray-500 hover:text-red-500 transition">Sign Out</button>
+                <button id="themeToggle" aria-label="Toggle Theme" class="relative w-16 h-9 flex items-center bg-gray-300 dark:bg-gray-700 rounded-full p-1 cursor-pointer transition-colors duration-300 focus:outline-none">
+                    <div id="switchCircle" class="w-7 h-7 bg-white dark:bg-gray-900 rounded-full shadow-md transform translate-x-7 dark:translate-x-0 transition-transform duration-300 flex items-center justify-center">
+                        <svg id="sunIcon" class="w-4 h-4 text-amber-500 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                        <svg id="moonIcon" class="w-4 h-4 text-indigo-400 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                    </div>
+                </button>
+            </div>
+        </nav>
+
+        <!--Main Grid Container-->
+        <main id="dashboard-grid" class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <div class="col-span-1 md:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col items-center text-center">
+                <h2 class="text-gray-500 dark:text-gray-400 text-sm font-semibold uppercase tracking-wider mb-2">System Status</h2>
+                <div id="countdown-display" class="text-5xl font-mono font-bold text-gray-900 dark:text-white mb-2">00:00</div>
+                <span id="master-status" class="text-lg font-bold text-green-500">SYSTEM SAFE</span>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col items-center text-center transition-all duration-300">
+                <h2 class="text-gray-500 dark:text-gray-400 text-sm font-semibold uppercase tracking-wider mb-2">Max Temperature</h2>
+                <div id="temp-display" class="text-6xl font-extrabold text-gray-900 dark:text-white mb-4 mt-2">-- °C</div>
+                <span id="temp-status" class="px-4 py-1.5 text-sm font-bold rounded-full bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300 transition-colors duration-300">Awaiting Data...</span>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col items-center text-center transition-all duration-300">
+                <h2 class="text-gray-500 dark:text-gray-400 text-sm font-semibold uppercase tracking-wider mb-2">Radar Distance</h2>
+                <div id="distance-display" class="text-6xl font-extrabold text-gray-900 dark:text-white mb-4 mt-2">-- cm</div>
+                <span id="cooking-status" class="px-4 py-1.5 text-sm font-bold rounded-full bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300 transition-colors duration-300">Awaiting Data...</span>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col items-center text-center transition-all duration-300">
+                <h2 class="text-gray-500 dark:text-gray-400 text-sm font-semibold uppercase tracking-wider mb-2">Last User Tapped</h2>
+                <div id="rfid-display" class="text-3xl font-bold text-indigo-600 dark:text-indigo-400 mb-2 mt-6">None</div>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Scan ID card to take over cooking</p>
+            </div>
+
+            <!-- Human Detection Sensitivity -->
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col items-center text-center transition-all duration-300">
+                <h2 class="text-gray-500 dark:text-gray-400 text-sm font-semibold uppercase tracking-wider mb-2">Human Detection Sensitivity</h2>
+                <select id="sensitivity-select" class="mt-4 w-3/4 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-lg rounded-lg focus:ring-orange-500 focus:border-orange-500 block p-3 cursor-pointer outline-none">
+                    <option value="low">Low (Fewer False Alarms)</option>
+                    <option value="medium" selected>Medium (Standard)</option>
+                    <option value="high">High (Maximum Range)</option>
+                </select>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-4">Adjust threshold for presence detection</p>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col items-center text-center transition-all duration-300">
+                <h2 class="text-gray-500 dark:text-gray-400 text-sm font-semibold uppercase tracking-wider mb-2">Alarm Grace Period</h2>
+                <select id="grace-period-select" class="mt-4 w-3/4 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-lg rounded-lg focus:ring-orange-500 focus:border-orange-500 block p-3 cursor-pointer outline-none">
+                    <option value="short">Short (30 sec)</option>
+                    <option value="medium" selected>Medium (2 min)</option>
+                    <option value="long">Long (5 min)</option>
+                </select>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-4">Time before alarm sounds if forgotten</p>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col items-center text-center transition-all duration-300">
+                <h2 class="text-gray-500 dark:text-gray-400 text-sm font-semibold uppercase tracking-wider mb-4">Emergency Alerts</h2>
+                <input type="text" id="alert-phone" placeholder="Phone Number (e.g. +15551234567)" class="mb-3 w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-orange-500 focus:border-orange-500 block p-2.5 outline-none">
+                <select id="alert-pref" class="mb-4 w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-orange-500 focus:border-orange-500 block p-2.5 cursor-pointer outline-none">
+                    <option value="email">Email Only</option>
+                    <option value="sms">SMS Only</option>
+                    <option value="both" selected>Both Email & SMS</option>
+                </select>
+                <button id="save-profile-btn" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                    Save Preferences
+                </button>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Script to handle the Dark/Light mode toggle -->
+    <script>
+        const themeBtn = document.getElementById('themeToggle');
+        const htmlElement = document.documentElement;
+        themeBtn.addEventListener('click', () => {
+            htmlElement.classList.toggle('dark');
+        });
+    </script>
+    
+    <script src="env.js"></script>
+
+    <!-- Firebase Auth and Realtime Data Script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, get, onValue, set, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        const app = initializeApp(window.FIREBASE_CONFIG);
+        const db = getDatabase(app);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+        
+        let currentUserUid = null;
+        let activeDevicePath = null;
+
+        const loginScreen = document.getElementById('login-screen');
+        const bindScreen = document.getElementById('bind-screen');
+        const dashboardContent = document.getElementById('dashboard-content');
+        
+        // Elements that will be frozen during an alarm
+        const lockableElements = [
+            'sensitivity-select', 
+            'grace-period-select', 
+            'alert-phone', 
+            'alert-pref', 
+            'save-profile-btn'
+        ];
+
+        document.getElementById('login-btn').addEventListener('click', () => {
+            signInWithPopup(auth, provider).catch(error => alert("Login failed: " + error.message));
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            signOut(auth);
+        });
+
+        // Routing Logic
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUserUid = user.uid;
+                loginScreen.classList.add('hidden');
+                
+                // Save basic profile
+                update(ref(db, 'users/' + currentUserUid + '/profile'), {
+                    email: user.email,
+                    last_login: new Date().toISOString()
+                });
+
+                // Check if user has a bound device
+                get(ref(db, 'users/' + currentUserUid + '/active_device')).then((snapshot) => {
+                    if (snapshot.exists()) {
+                        // DEVICE FOUND: Go straight to dashboard
+                        activeDevicePath = "/devices/" + snapshot.val();
+                        bindScreen.classList.add('hidden');
+                        dashboardContent.classList.remove('hidden');
+                        
+                        loadProfileData();
+                        startDataListener();
+                    } else {
+                        // NO DEVICE: Show binding screen
+                        dashboardContent.classList.add('hidden');
+                        bindScreen.classList.remove('hidden');
+                    }
+                });
+
+            } else {
+                currentUserUid = null;
+                activeDevicePath = null;
+                bindScreen.classList.add('hidden');
+                dashboardContent.classList.add('hidden');
+                loginScreen.classList.remove('hidden');
+            }
+        });
+
+        // Device Binding Logic
+        document.getElementById('bind-btn').addEventListener('click', () => {
+            const macInput = document.getElementById('mac-input').value.trim().toUpperCase();
+            if(macInput.length < 10) {
+                alert("Please enter a valid MAC address.");
+                return;
+            }
+            // Save it to the user's account
+            set(ref(db, 'users/' + currentUserUid + '/active_device'), macInput).then(() => {
+                activeDevicePath = "/devices/" + macInput;
+                bindScreen.classList.add('hidden');
+                dashboardContent.classList.remove('hidden');
+                startDataListener();
+            });
+        });
+
+        function loadProfileData() {
+            onValue(ref(db, 'users/' + currentUserUid + '/profile'), (snapshot) => {
+                if(snapshot.exists()) {
+                    const p = snapshot.val();
+                    if(p.phone) document.getElementById('alert-phone').value = p.phone;
+                    if(p.alert_preference) document.getElementById('alert-pref').value = p.alert_preference;
+                }
+            }, { onlyOnce: true });
+        }
+
+        document.getElementById('save-profile-btn').addEventListener('click', () => {
+            if (!currentUserUid) return;
+            update(ref(db, 'users/' + currentUserUid + '/profile'), {
+                phone: document.getElementById('alert-phone').value,
+                alert_preference: document.getElementById('alert-pref').value
+            }).then(() => alert("Alert preferences saved successfully!"));
+        });
+
+        function startDataListener() {
+            if(!activeDevicePath) return;
+
+            onValue(ref(db, activeDevicePath), (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    document.getElementById('temp-display').innerText = data.max_temp.toFixed(2) + " °C";
+                    const tempBadge = document.getElementById('temp-status');
+                    if (data.max_temp >= 34.0) {
+                        tempBadge.innerText = "DANGER: HOT";
+                        tempBadge.className = "px-4 py-1.5 text-sm font-bold rounded-full bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 transition-colors duration-300";
+                    } else {
+                        tempBadge.innerText = "SAFE";
+                        tempBadge.className = "px-4 py-1.5 text-sm font-bold rounded-full bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 transition-colors duration-300";
+                    }
+
+                    document.getElementById('distance-display').innerText = data.distance + " cm";
+                    const cookingBadge = document.getElementById('cooking-status');
+                    if (data.is_cooking) {
+                        cookingBadge.innerText = "USER PRESENT";
+                        cookingBadge.className = "px-4 py-1.5 text-sm font-bold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 transition-colors duration-300";
+                    } else {
+                        cookingBadge.innerText = "AWAY";
+                        cookingBadge.className = "px-4 py-1.5 text-sm font-bold rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 transition-colors duration-300";
+                    }
+
+                    document.getElementById('rfid-display').innerText = data.last_user_uid || "None";
+                    
+                    if (data.alarm_triggered) {
+                        document.getElementById('countdown-display').innerText = "00:00";
+                        document.getElementById('master-status').innerText = "DANGER: ALARM TRIGGERED";
+                        document.getElementById('master-status').className = "text-lg font-bold text-red-600 animate-pulse";
+                        
+                        // LOCK ALL SETTINGS
+                        lockableElements.forEach(id => {
+                            document.getElementById(id).disabled = true;
+                            document.getElementById(id).classList.add('opacity-50', 'cursor-not-allowed');
+                        });
+            
+                        if (!window.hasAlerted) {
+                            alert("⚠️ DANGER! Email sent. GO TO YOUR STOVE IMMEDIATELY!");
+                            window.hasAlerted = true; 
+                        }
+                    } else {
+                        window.hasAlerted = false; 
+                        document.getElementById('master-status').innerText = "SYSTEM SAFE";
+                        document.getElementById('master-status').className = "text-lg font-bold text-green-500";
+                        
+                        // UNLOCK ALL SETTINGS
+                        lockableElements.forEach(id => {
+                            document.getElementById(id).disabled = false;
+                            document.getElementById(id).classList.remove('opacity-50', 'cursor-not-allowed');
+                        });
+
+                        let minutes = Math.floor(data.time_left / 60);
+                        let seconds = data.time_left % 60;
+                        document.getElementById('countdown-display').innerText = 
+                            `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    }
+                } 
+            });
+
+            document.getElementById('grace-period-select').addEventListener('change', (event) => {
+                set(ref(db, activeDevicePath + '/grace_period'), event.target.value);
+            });
+            
+            document.getElementById('sensitivity-select').addEventListener('change', (event) => {
+                set(ref(db, activeDevicePath + '/radar_sensitivity'), event.target.value);
+            });
+        }
+    </script>
+</body>
+</html>
