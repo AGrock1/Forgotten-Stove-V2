@@ -82,12 +82,6 @@
                 <span id="cooking-status" class="px-4 py-1.5 text-sm font-bold rounded-full bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300 transition-colors duration-300">Awaiting Data...</span>
             </div>
 
-            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col items-center text-center transition-all duration-300">
-                <h2 class="text-gray-500 dark:text-gray-400 text-sm font-semibold uppercase tracking-wider mb-2">Last User Tapped</h2>
-                <div id="rfid-display" class="text-3xl font-bold text-indigo-600 dark:text-indigo-400 mb-2 mt-6">None</div>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Scan ID card to take over cooking</p>
-            </div>
-
             <!-- Human Detection Sensitivity -->
             <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col items-center text-center transition-all duration-300">
                 <h2 class="text-gray-500 dark:text-gray-400 text-sm font-semibold uppercase tracking-wider mb-2">Human Detection Sensitivity</h2>
@@ -109,7 +103,7 @@
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-4">Time before alarm sounds if forgotten</p>
             </div>
 
-            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col items-center text-center transition-all duration-300">
+            <div class="col-span-1 md:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col items-center text-center transition-all duration-300">
                 <h2 class="text-gray-500 dark:text-gray-400 text-sm font-semibold uppercase tracking-wider mb-4">Emergency Alerts</h2>
                 <input type="text" id="alert-phone" placeholder="Phone Number (e.g. +15551234567)" class="mb-3 w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-orange-500 focus:border-orange-500 block p-2.5 outline-none">
                 <select id="alert-pref" class="mb-4 w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-orange-500 focus:border-orange-500 block p-2.5 cursor-pointer outline-none">
@@ -268,8 +262,6 @@
                         cookingBadge.innerText = "AWAY";
                         cookingBadge.className = "px-4 py-1.5 text-sm font-bold rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 transition-colors duration-300";
                     }
-
-                    document.getElementById('rfid-display').innerText = data.last_user_uid || "None";
                     
                     if (data.alarm_triggered) {
                         document.getElementById('countdown-display').innerText = "00:00";

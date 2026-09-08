@@ -4,8 +4,6 @@
   #include <Adafruit_AMG88xx.h>
   #include <HardwareSerial.h>
   #include <MyLD2410.h>
-  #include <MFRC522.h>
-  #include <SPI.h>
   #include <WiFiManager.h>
   #include <WiFi.h>
   #include <Firebase_ESP_Client.h>
@@ -15,27 +13,19 @@
   #include "password.h"
 
   // Constants
-  const int max_distance = 150;
   const float hot_temp = 34.0;
   const int buzzer_pin = 3;
   const int green_led_pin = 5;
   const int red_led_pin = 4;
-  const unsigned long rfid_delay = 1500;
-
-  #define rst_pin 2
-  #define ss_pin 10
 
   // Objects and variables
   Adafruit_AMG88xx stove;
   MyLD2410 radar(Serial1);
-  MFRC522 rfid(ss_pin,rst_pin);
   unsigned long lastThermalCheck = 0;
   unsigned long grace_time = 120000;
   unsigned long abandon_time = 0;
   unsigned long lastSettingsCheck = 0;
-  unsigned long last_rfid_tap_time = 0;
-  String last_uid_tapped = "None";
-  String second_last_uid_tapped = "None";
+  int max_distance = 150;
   FirebaseData fbdo;
   FirebaseData fbdo_read;
   FirebaseAuth auth;
@@ -113,42 +103,9 @@ void setup() {
   Serial1.begin(256000, SERIAL_8N1, 20, 21);
   radar.begin();
 
-  //   Turn on SPI and start RFID Reader
-  SPI.begin(6, 0, 7, 10); // SCK, MISO, MOSI, SS
-  rfid.PCD_Init();
-  Serial.println("RFID Scanner Online. Tap a card...");
 }
 
 void loop() {
-
-  // Check for rfid tag
-  if (millis() - last_rfid_tap_time > rfid_delay) {
-    if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()){
-      last_rfid_tap_time = millis();
-      Serial.print("User Tag Tapped! UID: ");
-      String tagUID = "";
-
-      // Read the 4 bytes of the card's UID and convert to Hexadecimal string
-      for (byte i = 0; i < rfid.uid.size; i++) {
-        tagUID += String(rfid.uid.uidByte[i] < 0x10 ? "0" : "");
-        tagUID += String(rfid.uid.uidByte[i], HEX);
-      }
-    
-      tagUID.toUpperCase();
-      Serial.println(tagUID);
-      second_last_uid_tapped = last_uid_tapped;
-      last_uid_tapped = tagUID;
-
-      if (last_uid_tapped == second_last_uid_tapped){
-        last_uid_tapped = "None";
-
-      }
-    
-      // Halt the card so it doesn't read the exact same tap 1000 times a second
-      rfid.PICC_HaltA();
-      rfid.PCD_StopCrypto1();
-    }
-  }
   
   // Constantly check radar
   radar.check();
@@ -181,7 +138,7 @@ void loop() {
       else if (radar.stationaryTargetDetected()){
         current_distance = radar.stationaryTargetDistance();
       }
-      if (current_distance > 0 && current_distance <= max_distance){
+      if (current_distance > 40 && current_distance <= max_distance){
         is_person_cooking = true;
       }
 
@@ -196,6 +153,9 @@ void loop() {
     Serial.println(is_person_cooking ? "YES" : "NO");
 
     // Apply safety rules
+    bool alarm_triggered = false;
+    long time_left_sec = grace_time / 1000;
+
     if (max_temp >= hot_temp){
       // Active cooking
       if (is_person_cooking == true){
@@ -211,11 +171,17 @@ void loop() {
         }
         digitalWrite(green_led_pin, LOW);
         digitalWrite(red_led_pin, HIGH);
-        if (millis() - abandon_time > grace_time){
+        
+        long elapsed_time = millis() - abandon_time;
+        
+        if (elapsed_time > grace_time){
           digitalWrite(buzzer_pin, HIGH);
+          alarm_triggered = true;
+          time_left_sec = 0;
         }
         else{
           digitalWrite(buzzer_pin, LOW);
+          time_left_sec = (grace_time - elapsed_time) / 1000;
         }
       }
 
@@ -233,7 +199,8 @@ void loop() {
     json.set("max_temp", max_temp);
     json.set("distance", current_distance);
     json.set("is_cooking", is_person_cooking);
-    json.set("last_user_uid", last_uid_tapped);
+    json.set("time_left", time_left_sec);           
+    json.set("alarm_triggered", alarm_triggered);
 
     if (!Firebase.RTDB.setJSONAsync(&fbdo, device_path, &json)) {
       Serial.println("Failed to push JSON: " + fbdo.errorReason());
@@ -253,6 +220,20 @@ void loop() {
           grace_time = 120000; // 2 minutes
         } else if (user_pref == "long") {
           grace_time = 300000; // 5 minutes
+        }
+      }
+      // Adjust radar sensitivity 
+      if (Firebase.RTDB.getString(&fbdo_read, device_path + "/radar_sensitivity")) {
+        String sensitivity = fbdo_read.stringData();
+        sensitivity.trim();
+        sensitivity.toLowerCase();
+
+        if (sensitivity == "low") {
+          max_distance = 100; // Requires user to be within 1 meter
+        } else if (sensitivity == "medium") {
+          max_distance = 150; // Requires user to be within 1.5 meters
+        } else if (sensitivity == "high") {
+          max_distance = 250; // Detects user up to 2.5 meters away
         }
       }
     }
